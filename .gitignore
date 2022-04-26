@@ -1,4 +1,9 @@
-*.pyc
+# Binary files
+*.bin
+*/FOTA
 *.uarp
+
+# Python-related
+*.pyc
 .idea
 venv

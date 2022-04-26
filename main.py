@@ -14,12 +14,12 @@ parser.add_argument(
 )
 parser.add_argument(
     "output_dir",
-    help='The directory to save payloads to.',
+    help="The directory to save payloads to.",
     type=pathlib.Path,
 )
 parser.add_argument(
     "--extract-payloads",
-    help="Whether to decompress the FOTA.",
+    help="Whether to extract all payloads of this SuperBinary.",
     action=argparse.BooleanOptionalAction,
     default=True,
 )
@@ -48,8 +48,12 @@ if args.extract_payloads:
         name = payload.get_tag() + ".bin"
         path = payload_dir / name
         # Write!
-        with open(path, 'wb') as f:
+        with open(path, "wb") as f:
             f.write(payload.payload)
+
+    # Lastly, write the SuperBinary plist.
+    with open(payload_dir / "SuperBinary.plist", "wb") as f:
+        f.write(super_binary.plist_data)
 
 
 print(super_binary.get_tag(b"FOTA"))

@@ -48,4 +48,4 @@ class UarpPayload(object):
 
     def get_tag(self) -> str:
         """Returns a string with the given tag name."""
-        return self.tag.decode('utf-8')
+        return self.tag.decode("utf-8")

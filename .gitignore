@@ -1,6 +1,7 @@
 # Binary files
 *.bin
 */FOTA
+*.plist
 *.uarp
 
 # Python-related

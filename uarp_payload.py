@@ -23,6 +23,9 @@ class UarpPayload(object):
     payloads_length: int
     # Payloads offset
     payloads_offset: int
+    # Metadata held by the firmware.
+    # Note that, in some firmware, it may be empty.
+    metadata: bytes = field(repr=False)
     # The data represented by this payload.
     payload: bytes = field(repr=False)
 
@@ -35,16 +38,18 @@ class UarpPayload(object):
             self.minor_version,
             self.release_version,
             self.build_version,
-            self.metadata_length,
             self.metadata_offset,
+            self.metadata_length,
             self.payloads_offset,
             self.payloads_length,
         ) = struct.unpack_from(">I4sIIIIIIII", metadata)
 
-        # Obtain our payload.
+        # Obtain our metadata and payload.
+        data.seek(self.metadata_offset)
+        self.payload = data.read(self.metadata_length)
+
         data.seek(self.payloads_offset)
         self.payload = data.read(self.payloads_length)
-        print(self.tag)
 
     def get_tag(self) -> str:
         """Returns a string with the given tag name."""

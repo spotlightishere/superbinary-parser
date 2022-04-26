@@ -59,18 +59,14 @@ class SuperBinary(object):
 
         # Next, load offsets and length information.
         (
-            self.metadata_length,
             self.metadata_offset,
-            self.payloads_length,
+            self.metadata_length,
             self.payloads_offset,
+            self.payloads_length,
         ) = struct.unpack_from(">IIII", data.read(16))
-        assert self.metadata_offset == 0, "Invalid metadata offset!"
 
         # Finally, extract actual payload metadata.
-        # TODO: determine what to properly do for multiple metadata entries
-        # Presumably we read the first byte of metadata and divide by metadata length.
-
-        # At this point, we have gone past the SuperBinary header.
+        # At this point, we have gone past the SuperBinary header (0x2c).
         # The observed tag size is 0x28, so we will assume that.
         # Please make an issue (or a PR) to change this logic in the future!
         queried_data = struct.unpack_from(">I", data.peek(4))

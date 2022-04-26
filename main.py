@@ -1,5 +1,4 @@
 import argparse
-import os
 import pathlib
 
 from super_binary import SuperBinary
@@ -35,8 +34,8 @@ parser.add_argument(
     type=argparse.BooleanOptionalAction,
 )
 args = parser.parse_args()
-print(args)
 super_binary = SuperBinary(args.source)
+print(super_binary)
 
 # Ensure our payload directory can be written to.
 payload_dir = args.output_dir
@@ -45,6 +44,8 @@ payload_dir.mkdir(parents=True, exist_ok=True)
 # Write out payloads if desired.
 if args.extract_payloads:
     for payload in super_binary.payloads:
+        print(f"Saving {payload.get_tag()}...")
+        print(payload)
         name = payload.get_tag() + ".bin"
         path = payload_dir / name
         # Write!
@@ -54,6 +55,3 @@ if args.extract_payloads:
     # Lastly, write the SuperBinary plist.
     with open(payload_dir / "SuperBinary.plist", "wb") as f:
         f.write(super_binary.plist_data)
-
-
-print(super_binary.get_tag(b"FOTA"))

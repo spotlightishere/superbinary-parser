@@ -15,7 +15,7 @@ class SuperBinary(object):
     header_length: int
     # The size this SuperBinary payload spans.
     # Note that data may trail (i.e. the SuperBinary plist).
-    payload_size: int
+    binary_size: int
     # i.e. 100 in '100.7916.1052884864.1'.
     major_version: int
     # i.e. 7916 in '100.7916.1052884864.1'.
@@ -29,9 +29,9 @@ class SuperBinary(object):
     # Observed to be zero.
     metadata_offset: int
     # Payloads length
-    payloads_length: int
+    row_length: int
     # Payloads offset
-    payloads_offset: int
+    row_offset: int
 
     # Payloads available within this binary.
     payloads: list[UarpPayload]
@@ -50,7 +50,7 @@ class SuperBinary(object):
 
         # Load the remainder of the header.
         (
-            self.payload_size,
+            self.binary_size,
             self.major_version,
             self.minor_version,
             self.release_version,
@@ -61,8 +61,8 @@ class SuperBinary(object):
         (
             self.metadata_offset,
             self.metadata_length,
-            self.payloads_offset,
-            self.payloads_length,
+            self.row_offset,
+            self.row_length,
         ) = struct.unpack_from(">IIII", data.read(16))
 
         # Finally, extract actual payload metadata.
@@ -72,10 +72,10 @@ class SuperBinary(object):
         queried_data = struct.unpack_from(">I", data.peek(4))
         metadata_tag_size = queried_data[0]
         assert metadata_tag_size == 0x28, "Unknown metadata tag size!"
-        payload_count = self.payloads_length // metadata_tag_size
+        row_count = self.row_length // metadata_tag_size
 
         # Obtain all possible payloads.
-        for payload_num in range(payload_count):
+        for payload_num in range(row_count):
             # Determine the metadata offset for this payload.
             offset = self.header_length + (payload_num * metadata_tag_size)
             data.seek(offset)
@@ -85,7 +85,7 @@ class SuperBinary(object):
 
         # Lastly, take our ending plist.
         # Our payload size should be adequate.
-        data.seek(self.payload_size)
+        data.seek(self.binary_size)
         self.plist_data = data.read()
 
     def get_tag(self, tag: bytes) -> [UarpPayload, None]:

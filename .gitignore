@@ -1,0 +1,4 @@
+*.pyc
+*.uarp
+.idea
+venv

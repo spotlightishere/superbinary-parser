@@ -1,6 +1,7 @@
 import argparse
 import pathlib
 
+from fota_payload import FotaPayload
 from super_binary import SuperBinary
 
 parser = argparse.ArgumentParser(
@@ -23,7 +24,7 @@ parser.add_argument(
     default=True,
 )
 parser.add_argument(
-    "--decompresss-fota",
+    "--decompress-fota",
     help="Whether to decompress the FOTA.",
     action=argparse.BooleanOptionalAction,
 )
@@ -41,17 +42,33 @@ print(super_binary)
 payload_dir = args.output_dir
 payload_dir.mkdir(parents=True, exist_ok=True)
 
+
+def write_payload(file_name: str, contents: bytes):
+    file_path = payload_dir / file_name
+    with open(file_path, "wb") as f:
+        f.write(contents)
+
+
 # Write out payloads if desired.
 if args.extract_payloads:
     for payload in super_binary.payloads:
         print(f"Saving {payload.get_tag()}...")
-        print(payload)
-        name = payload.get_tag() + ".bin"
-        path = payload_dir / name
-        # Write!
-        with open(path, "wb") as f:
-            f.write(payload.payload)
+        write_payload(payload.get_tag() + ".bin", payload.payload)
 
     # Lastly, write the SuperBinary plist.
-    with open(payload_dir / "SuperBinary.plist", "wb") as f:
-        f.write(super_binary.plist_data)
+    write_payload("SuperBinary.plist", super_binary.plist_data)
+
+if args.decompress_fota:
+    # Ensure we have a payload of this type.
+    fota_payload = super_binary.get_tag(b"FOTA")
+    if not fota_payload:
+        print("Missing FOTA payload!")
+        exit(1)
+
+    fota = FotaPayload(fota_payload.payload)
+    # TODO(spotlightishere): implement LZMA stream decompression
+    # write_payload("FOTA", fota.decompress())
+    # print("Decompressed FOTA payload!")
+
+    write_payload("FOTA.bin.sig", fota.unknown)
+    write_payload("FOTA.bin.lzma", fota.compressed)

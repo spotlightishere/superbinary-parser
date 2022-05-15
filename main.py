@@ -36,7 +36,6 @@ parser.add_argument(
 )
 args = parser.parse_args()
 super_binary = SuperBinary(args.source)
-print(super_binary)
 
 # Ensure our payload directory can be written to.
 payload_dir = args.output_dir
@@ -66,9 +65,9 @@ if args.decompress_fota:
         exit(1)
 
     fota = FotaPayload(fota_payload.payload)
-    # TODO(spotlightishere): implement LZMA stream decompression
-    # write_payload("FOTA", fota.decompress())
-    # print("Decompressed FOTA payload!")
-
     write_payload("FOTA.bin.sig", fota.unknown)
     write_payload("FOTA.bin.lzma", fota.compressed)
+
+    # TODO(spotlightishere): implement LZMA stream decompression
+    write_payload("FOTA", fota.decompress())
+    print("Decompressed FOTA payload!")

@@ -1,6 +1,6 @@
 # Binary files
 *.bin
-*/FOTA
+*/FOTA*
 *.plist
 *.uarp
 

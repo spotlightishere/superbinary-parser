@@ -1,7 +1,6 @@
-import struct
 from dataclasses import dataclass, field
 
-import pylzma
+import LZMAalone
 
 
 @dataclass
@@ -20,9 +19,7 @@ class FotaPayload(object):
         # Our compressed payload starts at 0x1000 and goes to the end.
         self.compressed = data[0x1000:]
 
-        print(self.unknown[0x29D:0x29E])
-
     def decompress(self) -> bytes:
         """Decompresses the LZMA-encoded payload."""
         # We need to manually parse the header because things are very broken otherwise.
-        return pylzma.decompress(self.compressed)
+        return LZMAalone.decompress(self.compressed)

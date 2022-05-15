@@ -1,7 +1,9 @@
 import argparse
+import os
 import pathlib
 
 from fota_payload import FotaPayload
+from rofs import find_rofs
 from super_binary import SuperBinary
 
 parser = argparse.ArgumentParser(
@@ -30,9 +32,8 @@ parser.add_argument(
 )
 parser.add_argument(
     "--extract-rofs",
-    "--extract-sounds",
-    help="If set, extracts the ROFS partition to the output directory under 'files'.",
-    type=argparse.BooleanOptionalAction,
+    help="Whether to extract the ROFS partition to the output directory.",
+    action=argparse.BooleanOptionalAction,
 )
 args = parser.parse_args()
 super_binary = SuperBinary(args.source)
@@ -68,6 +69,18 @@ if args.decompress_fota:
     write_payload("FOTA.bin.sig", fota.unknown)
     write_payload("FOTA.bin.lzma", fota.compressed)
 
-    # TODO(spotlightishere): implement LZMA stream decompression
-    write_payload("FOTA", fota.decompress())
+    # Decompress payload.
+    fota_contents = fota.decompress()
+    write_payload("FOTA", fota_contents)
     print("Decompressed FOTA payload!")
+
+if args.extract_rofs:
+    if not args.decompress_fota:
+        print("Please ensure that --decompress-fota is specified.")
+        exit(1)
+
+    # TODO(spotlightishere): properly determine ROFS location from data
+    rofs_partition = find_rofs(fota_contents)
+    os.makedirs(payload_dir/"files", exist_ok=True)
+    for file in rofs_partition.files:
+        write_payload(f"files/{file.file_name}", file.contents)

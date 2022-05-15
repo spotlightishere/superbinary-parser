@@ -1,0 +1,49 @@
+meta:
+  id: rofs
+  file-extension: bin
+  endian: le
+
+seq:
+  - id: magic
+    contents: "ROFS"
+  - id: file_size
+    type: u4
+  - id: file_size_again
+    type: u4
+  - id: amount_of_files
+    type: u4
+  - id: files
+    type: file_entry
+    repeat: expr
+    repeat-expr: amount_of_files
+types:
+  file_entry:
+    seq:
+      - id: file_index
+        type: u1
+      - id: metadata_length
+        type: u2
+      - id: padding
+        type: u1
+        doc: Consistent.
+      - id: file_name
+        type: strz
+        encoding: ASCII
+        size: 32
+      - id: first_unknown_marker
+        type: u4
+        doc: Likely used to mark where file metadata begins.
+      - id: file_offset
+        type: u4
+      - id: file_length
+        type: u4
+      - id: first_padding
+        type: u8
+      - id: second_unknown_marker
+        type: u4
+      - id: end_padding
+        size: 12
+    instances:
+      content:
+        pos: file_offset
+        size: file_length

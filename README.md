@@ -16,10 +16,9 @@ This tool is confirmed to work on the following device firmwares that have the S
 - [35W Dual USB-C Port Power Adapter](https://appledb.dev/device/35W-Dual-USB-C-Port-Power-Adapter.html)
 - [Apple Watch Magnetic Fast Charger to USB-C Cable](https://appledb.dev/device/Apple-Watch-Magnetic-Fast-Charger-to-USB-C-Cable.html)
 
-Currently, AirTag firmwares are not supported.
 ## Installation
 As this package depends on a secondary repository for custom LZMA decoding,
-t's recommended to install this package within a virtual environment.
+it's recommended to install this package within a virtual environment.
 
 Assuming a UNIX operating system, execute similar to the following:
 ```
@@ -36,8 +35,8 @@ usage: main.py [-h] [--extract-payloads | --no-extract-payloads] [--decompress-f
 main.py: error: the following arguments are required: source, output_dir
 ```
 
-On Beats Studio Buds, it is also possible to extract the sounds from the Read Only File System (ROFS) using this syntax:
+On Beats Studio Buds, it is also possible to extract the firmware sounds from the Read Only File System (ROFS) using this syntax:
 ``` 
-main.py --extract-payloads --decompress-fota --extract-rofs FirmwareUpdate.uarp output_dir
+python3 main.py --extract-payloads --decompress-fota --extract-rofs FirmwareUpdate.uarp output_dir
 ```
 The script will then extract the sounds to the output direction.

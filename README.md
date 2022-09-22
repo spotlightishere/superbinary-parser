@@ -38,6 +38,6 @@ main.py: error: the following arguments are required: source, output_dir
 
 On Beats Studio Buds, it is also possible to extract the firmware sounds from the Read Only File System (ROFS) using this syntax:
 ``` 
-python3 main.py --extract-payloads --decompress-fota --extract-rofs FirmwareUpdate.uarp output_dir
+> python3 main.py --extract-payloads --decompress-fota --extract-rofs FirmwareUpdate.uarp output_dir
 ```
 The script will then extract the sounds to the output direction.

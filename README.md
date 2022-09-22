@@ -7,6 +7,7 @@ On Beats Studio Buds, it can also extract the [FOTA](https://github.com/hack-dif
 in a [SuperBinary](https://github.com/hack-different/apple-knowledge/blob/main/_docs/UARP_and_FOTA.md#uarp---universal-accessory-restore-protocol) container.
 
 This tool is confirmed to work on the following device firmwares that have the SuperBinary container:
+- [AirPods Pro (2nd generation)](https://appledb.dev/device/AirPods-Pro-(2nd-generation).html)
 - [Beats Studio Buds](https://appledb.dev/device/Beats-Studio-Buds.html)
 - [MagSafe Charger](https://appledb.dev/device/MagSafe-Charger.html)
 - MagSafe Charger with MFi module, both [A2463](https://mesu.apple.com/assets/com_apple_MobileAsset_UARP_A2463/com_apple_MobileAsset_UARP_A2463.xml), and [A2728](https://mesu.apple.com/assets/com_apple_MobileAsset_UARP_A2728/com_apple_MobileAsset_UARP_A2728.xml).
@@ -37,6 +38,8 @@ main.py: error: the following arguments are required: source, output_dir
 
 On Beats Studio Buds, it is also possible to extract the firmware sounds from the Read Only File System (ROFS) using this syntax:
 ``` 
+> python3 main.py --extract-payloads --decompress-fota --extract-rofs FirmwareUpdate.uarp output_dir
+=======
 python3 main.py --extract-payloads --decompress-fota --extract-rofs FirmwareUpdate.uarp output_dir
 ```
 The script will then extract the sounds to the output direction.

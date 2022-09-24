@@ -21,6 +21,9 @@ This tool is confirmed to work on the following device firmwares that have the S
 As this package depends on a secondary repository for custom LZMA decoding,
 it's recommended to install this package within a virtual environment.
 
+You'll need appropriate build tools for your system.
+If you are installing on a Windows system, first download [Microsoft Visual C++ 14.0](https://visualstudio.microsoft.com/visual-cpp-build-tools/) or greater.
+
 Assuming a UNIX operating system, execute similar to the following:
 ```
 git clone https://github.com/spotlightishere/superbinary-parser

@@ -28,6 +28,7 @@ python3 -m venv venv
 source venv/bin/activate
 pip3 install -r requirements.txt
 ```
+If you are installing on a Windows system, first download Microsoft Visual C++ 14.0 or greater through this [link](https://visualstudio.microsoft.com/visual-cpp-build-tools/).
 
 You can then `python3 main.py`:
 ```

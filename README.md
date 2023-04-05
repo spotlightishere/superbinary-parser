@@ -18,7 +18,7 @@ This tool is confirmed to work on the following device firmwares that have the S
 - [Apple Watch Magnetic Fast Charger to USB-C Cable](https://appledb.dev/device/Apple-Watch-Magnetic-Fast-Charger-to-USB-C-Cable.html)
 
 ## Installation
-As this package depends on a secondary repository for custom LZMA decoding,
+As this package depends on a secondary repository ([LZMAAlone](https://github.com/spotlightishere/LZMAAlone)) for custom LZMA decoding,
 it's recommended to install this package within a virtual environment.
 
 You'll need appropriate build tools for your system.

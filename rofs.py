@@ -13,6 +13,7 @@ class ROFSFile(object):
 
 class ROFS(object):
     """Simple class to parse contents within a ROFS partition."""
+
     files: [ROFSFile] = []
 
     def __init__(self, passed_data: bytes):
@@ -29,12 +30,14 @@ class ROFS(object):
 
         # Begin parsing.
         for index in range(file_count):
-            file_name, file_offset, file_length = struct.unpack_from("<4x32s4xII24x", data.read(72))
+            file_name, file_offset, file_length = struct.unpack_from(
+                "<4x32s4xII24x", data.read(72)
+            )
             # Determine filename based on null terminator.
-            file_name = file_name.split(b'\x00')[0]
-            file_name = file_name.decode('utf-8')
+            file_name = file_name.split(b"\x00")[0]
+            file_name = file_name.decode("utf-8")
 
-            contents = passed_data[file_offset:file_offset+file_length]
+            contents = passed_data[file_offset : file_offset + file_length]
             file = ROFSFile(file_name, contents)
             self.files.append(file)
 

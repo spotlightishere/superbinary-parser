@@ -81,6 +81,6 @@ if args.extract_rofs:
 
     # TODO(spotlightishere): properly determine ROFS location from data
     rofs_partition = find_rofs(fota_contents)
-    os.makedirs(payload_dir/"files", exist_ok=True)
+    os.makedirs(payload_dir / "files", exist_ok=True)
     for file in rofs_partition.files:
         write_payload(f"files/{file.file_name}", file.contents)

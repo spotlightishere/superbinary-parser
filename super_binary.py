@@ -45,7 +45,7 @@ class SuperBinary(object):
         self.header_version, self.header_length = struct.unpack_from(
             ">II", data.read(8)
         )
-        assert self.header_version == 2, "Unknown version of SuperBinary!"
+        assert self.header_version in [2, 3], "Unknown version of SuperBinary!"
         assert self.header_length == 0x2C, "Invalid header length for version!"
 
         # Load the remainder of the header.

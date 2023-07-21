@@ -17,9 +17,18 @@ This tool is confirmed to work on the following device firmwares that have the S
 - [35W Dual USB-C Port Power Adapter](https://appledb.dev/device/35W-Dual-USB-C-Port-Power-Adapter.html)
 - [Apple Watch Magnetic Fast Charger to USB-C Cable](https://appledb.dev/device/Apple-Watch-Magnetic-Fast-Charger-to-USB-C-Cable.html)
 
+> **Note**
+> This tool aims to maintain compatability with the latest version of SuperBinary available.
+>
+> For example, with AirPods Pro (2nd generation), the version of SuperBinary increased from 2 to 3
+> in version 6.0. If parsing fails with a version 3 SuperBinary in the future, please file an issue!
+
 ## Installation
-As this package depends on a secondary repository for custom LZMA decoding,
+As this package depends on a secondary repository ([LZMAAlone](https://github.com/spotlightishere/LZMAAlone)) for custom LZMA decoding,
 it's recommended to install this package within a virtual environment.
+
+You'll need appropriate build tools for your system.
+If you are installing on a Windows system, first download [Microsoft Visual C++ 14.0](https://visualstudio.microsoft.com/visual-cpp-build-tools/) or greater.
 
 Assuming a UNIX operating system, execute similar to the following:
 ```

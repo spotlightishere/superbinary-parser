@@ -1,7 +1,9 @@
 import argparse
 import os
 import pathlib
+import sys
 
+from compressed_payload import decompress_payload_chunks
 from fota_payload import FotaPayload
 from rofs import find_rofs
 from super_binary import SuperBinary
@@ -34,6 +36,12 @@ parser.add_argument(
     "--extract-rofs",
     help="Whether to extract the ROFS partition to the output directory.",
     action=argparse.BooleanOptionalAction,
+)
+parser.add_argument(
+    "--decompress-payload-contents",
+    help="Whether to decompress payload contents in particular types of SuperBinaries.",
+    action=argparse.BooleanOptionalAction,
+    default=True,
 )
 args = parser.parse_args()
 super_binary = SuperBinary(args.source)
@@ -84,3 +92,22 @@ if args.extract_rofs:
     os.makedirs(payload_dir / "files", exist_ok=True)
     for file in rofs_partition.files:
         write_payload(f"files/{file.file_name}", file.contents)
+
+if args.decompress_payload_contents:
+    # TODO(spotlightishere): This should be extended beyond CTAB,
+    # and function on platforms beyond macOS.
+    assert (
+        sys.platform == "darwin"
+    ), "CTAB decompression is not yet supported on this platform."
+
+    ctab_payload = super_binary.get_tag(b"CTAB")
+    if not ctab_payload:
+        # TODO(spotlightishere): Payloads should have a way to mark whether
+        # they are compressed based on parsing the SuperBinary plist.
+        #
+        # For now, we'll simply exit - there's nothing else for us to do.
+        exit(0)
+
+    print("Decompressing CTAB...")
+    ctab_contents = decompress_payload_chunks(ctab_payload.payload)
+    write_payload("CTAB.decompressed.bin", ctab_contents)

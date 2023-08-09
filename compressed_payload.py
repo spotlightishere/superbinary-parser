@@ -6,7 +6,11 @@ import struct
 import sys
 
 # TODO(spotlightishere): Replace libcompression.dylib with a cross-platform implementation
-libcompression = ctypes.CDLL("libcompression.dylib")
+if sys.platform == "darwin":
+    libcompression = ctypes.CDLL("libcompression.dylib")
+else:
+    # For now, we cannot use it.
+    libcompression = None
 
 # TODO(spotlightishere): We should not depend on the chunk size always being 16,384.
 # Instead, read this value from the SuperBinary plist.

@@ -5,6 +5,7 @@ import sys
 
 from compressed_payload import decompress_payload_chunks
 from fota_payload import FotaPayload
+from metadata_plist import MetadataPlist
 from rofs import find_rofs
 from super_binary import SuperBinary
 
@@ -94,20 +95,19 @@ if args.extract_rofs:
         write_payload(f"files/{file.file_name}", file.contents)
 
 if args.decompress_payload_contents:
-    # TODO(spotlightishere): This should be extended beyond CTAB,
-    # and function on platforms beyond macOS.
+    # In order to understand which payload types are compressed, we need
+    # to parse the metadata plist present at the end of the SuperBinary.
+    metadata = MetadataPlist(super_binary.plist_data)
+
+    # TODO(spotlightishere): This should function on platforms beyond macOS.
     assert (
         sys.platform == "darwin"
-    ), "CTAB decompression is not yet supported on this platform."
+    ), "Decompression is not yet supported on this platform."
 
-    ctab_payload = super_binary.get_tag(b"CTAB")
-    if not ctab_payload:
-        # TODO(spotlightishere): Payloads should have a way to mark whether
-        # they are compressed based on parsing the SuperBinary plist.
-        #
-        # For now, we'll simply exit - there's nothing else for us to do.
-        exit(0)
+    for payload_tag, metadata_chunk_size in metadata.compressed_payload_tags:
+        payload = super_binary.get_tag(payload_tag)
+        assert payload, "Invalid payload 4CC specified in metadata!"
 
-    print("Decompressing CTAB...")
-    ctab_contents = decompress_payload_chunks(ctab_payload.payload)
-    write_payload("CTAB.decompressed.bin", ctab_contents)
+        print(f"Decompressing {payload.get_tag()}...")
+        contents = decompress_payload_chunks(payload.payload, metadata_chunk_size)
+        write_payload(f"{payload.get_tag()}.decompressed.bin", contents)

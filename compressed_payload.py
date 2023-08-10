@@ -12,10 +12,6 @@ else:
     # For now, we cannot use it.
     libcompression = None
 
-# TODO(spotlightishere): We should not depend on the chunk size always being 16,384.
-# Instead, read this value from the SuperBinary plist.
-STANDARD_BLOCK_SIZE = 16384
-
 # Our header's length is 10 bytes in length.
 COMPRESSED_HEADER_LENGTH = 10
 
@@ -120,7 +116,7 @@ class CompressedChunk(object):
         return decompressed_buf[0:buffer_size]
 
 
-def decompress_payload_chunks(raw_data: bytes) -> bytes:
+def decompress_payload_chunks(raw_data: bytes, chunk_size: int) -> bytes:
     """Decompresses a compressed payload within a SuperBinary."""
 
     data = BytesIO(raw_data)
@@ -149,9 +145,9 @@ def decompress_payload_chunks(raw_data: bytes) -> bytes:
 
         decompressed_data.write(decompressed)
 
-        # If we have a block size that decompresses to less than our
-        # chunk size, then we've come to an end of chunks.
-        if len(decompressed) != STANDARD_BLOCK_SIZE:
+        # If we have a block size that decompresses to less than the chunk size
+        # as specified in metadata, then we've come to an end of our chunks.
+        if len(decompressed) != chunk_size:
             break
 
     return decompressed_data.getbuffer()

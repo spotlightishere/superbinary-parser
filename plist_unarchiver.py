@@ -53,6 +53,8 @@ class SomewhatKeyedUnarchiver(object):
             return self.unarchive_dict(current_object)
         elif object_class == "NSMutableArray" or object_class == "NSArray":
             return self.unarchive_array(current_object)
+        elif object_class == "NSMutableString" or object_class == "NSString":
+            return self.unarchive_string(current_object)
         else:
             raise AssertionError(f'Unknown archived class type "{object_class}"!')
 
@@ -106,3 +108,9 @@ class SomewhatKeyedUnarchiver(object):
 
             result.append(value_contents)
         return result
+
+    def unarchive_string(self, array: dict) -> str:
+        """Resolves a NS(Mutable)String."""
+
+        # NSStrings simply contain their string value under "NS.string".
+        return array["NS.string"]

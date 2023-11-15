@@ -1,4 +1,5 @@
 import plistlib
+from typing import Union
 
 
 class SomewhatKeyedUnarchiver(object):
@@ -6,7 +7,7 @@ class SomewhatKeyedUnarchiver(object):
 
     This is very loosely put together:
     Please do not consider this as a reference implementation!
-    This projects's primary focus is on SuperBinary parsing, not NSKeyedUnarchiver :)"""
+    This project's primary focus is on SuperBinary parsing, not NSKeyedUnarchiver :)"""
 
     plist: dict
 
@@ -21,11 +22,11 @@ class SomewhatKeyedUnarchiver(object):
         """Returns a root object at the given index. This effectively resolves a UID."""
         return self.plist["$objects"][uid]
 
-    def get_class_name(self, object: dict) -> str:
+    def get_class_name(self, current_object: dict) -> str:
         """Returns the class name for the given object."""
         # This class's UID is present under the special "$class" key.
         # We can then look it up within the root "$objects" dictionary.
-        class_uid = object["$class"]
+        class_uid = current_object["$class"]
         class_info = self.plist["$objects"][class_uid]
 
         # For our intents and purposes, we only need to care about
@@ -43,23 +44,23 @@ class SomewhatKeyedUnarchiver(object):
         root_object = self.get_object(root_class_uid)
         return self.unarchive_object(root_object)
 
-    def unarchive_object(self, object: dict) -> any:
+    def unarchive_object(self, current_object: Union[dict, list]) -> any:
         """Unarchives an object."""
-        object_class = self.get_class_name(object)
+        object_class = self.get_class_name(current_object)
 
         # Ensure this is a class type we're familiar with.
         if object_class == "NSMutableDictionary" or object_class == "NSDictionary":
-            return self.unarchive_dict(object)
+            return self.unarchive_dict(current_object)
         elif object_class == "NSMutableArray" or object_class == "NSArray":
-            return self.unarchive_array(object)
+            return self.unarchive_array(current_object)
         else:
-            raise AssertionError("Unknown archived class type!")
+            raise AssertionError(f'Unknown archived class type "{object_class}"!')
 
-    def unarchive_dict(self, object: dict) -> dict:
+    def unarchive_dict(self, current_object: dict) -> dict:
         """Unarchives a NS(Mutable)Dictionary."""
         # For a dictionary, we have "NS.keys" and "NS.objects".
-        keys = object["NS.keys"]
-        values = object["NS.objects"]
+        keys = current_object["NS.keys"]
+        values = current_object["NS.objects"]
 
         assert len(keys) == len(values), "Invalid dictionary length!"
 
@@ -85,7 +86,7 @@ class SomewhatKeyedUnarchiver(object):
 
         return result
 
-    def unarchive_array(self, array: list) -> list:
+    def unarchive_array(self, array: dict) -> list:
         """Resolves a NS(Mutable)Array."""
         result = []
 

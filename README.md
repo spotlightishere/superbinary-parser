@@ -7,7 +7,7 @@ SuperBinaries are used in various Apple accessories, including the AirPods Pro (
 On Beats devices with a MediaTek chip, it can also extract the [FOTA](https://github.com/hack-different/apple-knowledge/blob/main/_docs/UARP_and_FOTA.md#fota---firmware-over-the-air) (MediaTek OTA)
 in a SuperBinary container.
 
-> **Note**
+> [!NOTE]
 > This tool aims to maintain compatability with the latest version of SuperBinary available.
 >
 > For example, with AirPods Pro (2nd generation), the version of SuperBinary increased from 2 to 3

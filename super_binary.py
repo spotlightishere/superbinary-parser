@@ -88,7 +88,7 @@ class SuperBinary(object):
         data.seek(self.binary_size)
         self.plist_data = data.read()
 
-    def get_tag(self, tag: bytes) -> [UarpPayload, None]:
+    def get_tag(self, tag: bytes) -> list[UarpPayload, None]:
         """Returns the payload for the given tag. Returns None if not present."""
         assert len(tag) == 4, "Invalid 4CC/magic passed!"
         for payload in self.payloads:

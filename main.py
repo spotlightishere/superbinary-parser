@@ -60,9 +60,27 @@ def write_payload(file_name: str, contents: bytes):
 
 # Write out payloads if desired.
 if args.extract_payloads:
+    seen_tags: dict[str, int] = dict()
     for payload in super_binary.payloads:
-        print(f"Saving {payload.get_tag()}...")
-        write_payload(payload.get_tag() + ".bin", payload.payload)
+        # Some tags may have duplicate payloads. Let's append a number for every ocurrence.
+        tag_name = payload.get_tag()
+        tag_was_seen = False
+        if seen_tags.get(tag_name) is not None:
+            # We have a tag! Increment its seen count.
+            seen_tags[tag_name] += 1
+            tag_was_seen = True
+        else:
+            seen_tags[tag_name] = 0
+
+        print(f"Saving {tag_name}...")
+        if tag_was_seen:
+            # e.g. CHFW_1.bin
+            seen_count = seen_tags[tag_name]
+            payload_filename = f"{tag_name}_{seen_count}.bin"
+        else:
+            # e.g. CHFW.bin
+            payload_filename = f"{tag_name}.bin"
+        write_payload(payload_filename, payload.payload)
 
     # Lastly, write the SuperBinary plist.
     write_payload("SuperBinary.plist", super_binary.plist_data)

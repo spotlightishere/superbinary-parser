@@ -14,22 +14,16 @@ in a SuperBinary container.
 > in version 6.0. If parsing fails with a version 3 SuperBinary in the future, please file an issue!
 
 ## Installation
-As this package depends on a secondary repository ([LZMAAlone](https://github.com/spotlightishere/LZMAAlone)) for custom LZMA decoding,
-it's recommended to install this package within a virtual environment.
+This package has no further dependencies.
 
-You'll need appropriate build tools for your system.
-If you are installing on a Windows system, first download [Microsoft Visual C++ 14.0](https://visualstudio.microsoft.com/visual-cpp-build-tools/) or greater.
+Previously, a separate package was required for LZMA decompression with FOTA payloads.
+This requirement has been removed as the built-in Python `lzma` module functions.
 
-Assuming a UNIX operating system, execute similar to the following:
-```
-git clone https://github.com/spotlightishere/superbinary-parser
-python3 -m venv venv
-source venv/bin/activate
-pip3 install -r requirements.txt
-```
+If your version of Python encounters an error while decompressing,
+please file an issue with your operating system and precise Python version (such as 3.13.1).
 
 ## Usage
-You can then `python3 main.py`:
+First, clone this repository. You can then `python3 main.py`:
 ```
 > python3 main.py
 usage: main.py [-h] [--extract-payloads | --no-extract-payloads] [--decompress-fota | --no-decompress-fota] [--extract-rofs | --no-extract-rofs] [--decompress-payload-contents | --no-decompress-payload-contents] source output_dir

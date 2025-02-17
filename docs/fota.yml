@@ -1,0 +1,106 @@
+meta:
+  id: fota
+  endian: le
+  encoding: ascii
+seq:
+  - id: header
+    type: fota_header
+    size: 4096
+  # Rather, until EOF!
+  - id: compressed_binary
+    size: _io.size - _io.pos
+types:
+  fota_header:
+    seq:
+      - id: rsa_signature_maybe
+        size: 256
+      - id: header_metadata
+        type: tlv_entry
+        repeat: until
+        repeat-until: _.data_length == 0xFFFF
+
+  #############
+  # TLV Types #
+  #############
+  format_metadata:
+    seq:
+      # Observed values have been 0x0102.
+      # This may mean there's a u1 with value 2,
+      # indicating two payloads,
+      # or perhaps something entirely different.
+      #
+      # For ease, let's assume they're a u2,
+      # and that there are only two payload segments.
+      - id: file_offset
+        type: u2
+      - id: metadata_size
+        type: u4
+      - id: payload_size
+        type: u4
+
+  segment_metadata:
+    seq:
+      - id: segment_count
+        type: u4
+      - id: segment_data
+        type: segment_info
+        repeat: expr
+        repeat-expr: segment_count
+
+  segment_info:
+    seq:
+      - id: payload_offset
+        doc: |>
+          Seemingly must be subtracted by 0x1000 - this presumably
+          has contents decompressed within memory.
+        type: u4
+      - id: payload_length
+        type: u4
+      - id: unknown
+        type: u4
+
+  hashes:
+    seq:
+      - id: hash_count
+        type: u4
+      - id: hash
+        size: 32
+        repeat: expr
+        repeat-expr: hash_count
+
+  # Every TLV entry appears to only be valid
+  # if its length is not 0xFFFF - there seems
+  # to be no count of metadata entries present.
+  tlv_entry:
+    seq:
+      - id: data_type
+        type: u2
+        enum: tlv_types
+      - id: data_length
+        type: u2
+      - id: data
+        size: data_length
+        if: data_type != tlv_types::invalid_data
+        type:
+          switch-on: data_type
+          cases:
+            'tlv_types::format_metadata': format_metadata
+            'tlv_types::segment_metadata': segment_metadata
+            'tlv_types::firmware_version': strz
+            'tlv_types::hashes': hashes
+            'tlv_types::chipset_name': str
+            'tlv_types::design_name': str
+            'tlv_types::unknown': u4
+enums:
+  tlv_types:
+    0x11: format_metadata
+    0x12: segment_metadata
+    0x13: firmware_version
+    0x14: hashes
+    0x20: chipset_name
+    0x21: design_name
+    # Perhaps a production flag?
+    0xf0: unknown
+    # Kaitai won't let us drop as soon as we match 0xFFFF.
+    # This is not a real type.
+    0xFFFF: invalid_data

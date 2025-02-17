@@ -93,7 +93,6 @@ if args.decompress_fota:
         exit(1)
 
     fota = FotaPayload(fota_payload.payload)
-    write_payload("FOTA.bin.sig", fota.unknown)
     write_payload("FOTA.bin.lzma", fota.compressed)
 
     # Decompress payload.

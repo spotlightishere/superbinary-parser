@@ -1,9 +1,13 @@
 # Binary files
 *.bin
-*/FOTA*
+FOTA*
 */files/*
 *.plist
 *.uarp
+
+# For testing purposes
+/firmware
+/extracted
 
 # Python-related
 *.pyc

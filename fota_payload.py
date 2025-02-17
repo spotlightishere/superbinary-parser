@@ -190,6 +190,12 @@ class FotaPayload(object):
     # LZMA compressed payload.
     compressed: bytes = field(repr=False)
 
+    # Decompressed LZMA payload.
+    decompressed: bytes = field(repr=False)
+
+    # Segments within.
+    segments: list[bytes] = field(repr=False)
+
     def __init__(self, data: bytes):
         # Our metadata is 4096 bytes in length.
         # This may not be guaranteed, but appears to be consistent
@@ -204,7 +210,18 @@ class FotaPayload(object):
         # Our compressed payload starts at 0x1000 and goes to the end.
         self.compressed = data[0x1000:]
 
-    def decompress(self) -> bytes:
-        """Decompresses the LZMA-encoded payload."""
-        # We need to manually parse the header because things are very broken otherwise.
-        return lzma.decompress(self.compressed)
+        # Decompress our LZMA payload.
+        self.decompressed = lzma.decompress(self.compressed)
+
+        # Separate segments within.
+        self.segments = []
+        for segment in self.metadata.segments:
+            # Each segment offset is 0x1000 ahead,
+            # as the decompressed portions likely
+            # overwrites the compressed portion in memory.
+            segment_offset_start = segment.payload_offset - 0x1000
+            segment_offset_end = segment_offset_start + segment.payload_length
+            segment_contents = self.decompressed[
+                segment_offset_start:segment_offset_end
+            ]
+            self.segments.append(segment_contents)

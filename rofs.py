@@ -42,19 +42,15 @@ class ROFS(object):
             self.files.append(file)
 
 
-def find_rofs(contents: bytes) -> [ROFS, None]:
-    """Attempts to find the ROFS contents in a file."""
-    # TODO(spotlightishere): Properly determine ROFS location from header.
-    location = 0
-    while True:
-        try:
-            location = contents.index(b"ROFS", location)
-        except ValueError:
-            print("Unable to find ROFS partition!")
-            return None
+def find_rofs(segments: list[bytes]) -> [ROFS, None]:
+    """Attempts to find the ROFS contents within the given segments."""
 
+    # Our ROFS segment should have its magic as its first four bytes.
+    for current_segment in segments:
         try:
-            return ROFS(contents[location:])
+            return ROFS(current_segment)
         except AssertionError:
-            # Increment past this location in order to continue searching.
-            location += 4
+            # Hmm... we'll have to keep trying.
+            continue
+
+    raise AssertionError("Unable to find ROFS partition!")

@@ -62,7 +62,7 @@ def write_payload(file_name: str, contents: bytes):
 if args.extract_payloads:
     seen_tags: dict[str, int] = dict()
     for payload in super_binary.payloads:
-        # Some tags may have duplicate payloads. Let's append a number for every ocurrence.
+        # Some tags may have duplicate payloads. Let's append a number for every occurrence.
         tag_name = payload.get_tag()
         tag_was_seen = False
         if seen_tags.get(tag_name) is not None:
@@ -96,9 +96,17 @@ if args.decompress_fota:
     write_payload("FOTA.bin.lzma", fota.compressed)
 
     # Decompress payload.
-    fota_contents = fota.decompress()
-    write_payload("FOTA", fota_contents)
-    print("Decompressed FOTA payload!")
+    write_payload("FOTA", fota.decompressed)
+
+    # Separate segments within.
+    os.makedirs(payload_dir / "segments", exist_ok=True)
+    for i, segment_contents in enumerate(fota.segments):
+        # Each segment offset is 0x1000 ahead
+        # as the decompressed portions likely
+        # overwrites the compressed portion in memory.
+        write_payload(f"segments/{i}.bin", segment_contents)
+
+    print("Extracted FOTA payload!")
 
 if args.extract_rofs:
     if not args.decompress_fota:
@@ -106,10 +114,13 @@ if args.extract_rofs:
         exit(1)
 
     # TODO(spotlightishere): properly determine ROFS location from data
-    rofs_partition = find_rofs(fota_contents)
+    rofs_partition = find_rofs(fota.segments)
     os.makedirs(payload_dir / "files", exist_ok=True)
     for file in rofs_partition.files:
         write_payload(f"files/{file.file_name}", file.contents)
+
+metadata = MetadataPlist(super_binary.plist_data)
+print(metadata)
 
 if args.decompress_payload_contents:
     # In order to understand which payload types are compressed, we need

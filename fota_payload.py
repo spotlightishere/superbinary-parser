@@ -1,6 +1,5 @@
+import lzma
 from dataclasses import dataclass, field
-
-import LZMAalone
 
 
 @dataclass
@@ -22,4 +21,4 @@ class FotaPayload(object):
     def decompress(self) -> bytes:
         """Decompresses the LZMA-encoded payload."""
         # We need to manually parse the header because things are very broken otherwise.
-        return LZMAalone.decompress(self.compressed)
+        return lzma.decompress(self.compressed)

@@ -205,7 +205,6 @@ class FotaPayload(object):
         # FOTA payload metadata anyway, and go from there.
         self.raw_metadata = data[0:0x1000]
         self.metadata = FotaMetadata(self.raw_metadata)
-        print(self.metadata)
 
         # Our compressed payload starts at 0x1000 and goes to the end.
         self.compressed = data[0x1000:]

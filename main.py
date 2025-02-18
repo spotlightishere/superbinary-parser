@@ -45,6 +45,11 @@ parser.add_argument(
     default=True,
 )
 args = parser.parse_args()
+if args.extract_rofs and not args.decompress_fota:
+    print("Please ensure that --decompress-fota is specified.")
+    exit(1)
+
+
 super_binary = SuperBinary(args.source)
 
 # Ensure our payload directory can be written to.
@@ -110,16 +115,12 @@ if args.decompress_fota:
 
     print("Extracted FOTA payload!")
 
-if args.extract_rofs:
-    if not args.decompress_fota:
-        print("Please ensure that --decompress-fota is specified.")
-        exit(1)
+    if args.extract_rofs:
+        rofs_partition = find_rofs(fota.segments)
+        os.makedirs(payload_dir / "files", exist_ok=True)
+        for file in rofs_partition.files:
+            write_payload(f"files/{file.file_name}", file.contents)
 
-    # TODO(spotlightishere): properly determine ROFS location from data
-    rofs_partition = find_rofs(fota.segments)
-    os.makedirs(payload_dir / "files", exist_ok=True)
-    for file in rofs_partition.files:
-        write_payload(f"files/{file.file_name}", file.contents)
 
 if args.decompress_payload_contents:
     # TODO(spotlightishere): This should function on platforms beyond macOS.

@@ -1,6 +1,7 @@
 import io
 import struct
 from dataclasses import dataclass, field
+from metadata_plist import UarpMetadata
 
 
 @dataclass
@@ -23,14 +24,21 @@ class UarpPayload(object):
     payloads_length: int
     # Payloads offset
     payloads_offset: int
-    # Metadata held by the firmware.
+    # Binary metadata held by the current payload.
     # Note that, in some firmware, it may be empty.
     metadata: bytes = field(repr=False)
+    # Metadata specified for this payload within the SuperBinary plist.
+    plist_metadata: UarpMetadata
     # The data represented by this payload.
     payload: bytes = field(repr=False)
 
-    def __init__(self, metadata: bytes, data: io.BufferedReader):
-        # Parse metadata.
+    def __init__(
+        self,
+        header: bytes,
+        plist_tuple: (bytes, UarpMetadata),
+        data: io.BufferedReader,
+    ):
+        # Parse the metadata within header.
         (
             metadata_tag_size,
             self.tag,
@@ -42,11 +50,17 @@ class UarpPayload(object):
             self.metadata_length,
             self.payloads_offset,
             self.payloads_length,
-        ) = struct.unpack_from(">I4sIIIIIIII", metadata)
+        ) = struct.unpack_from(">I4sIIIIIIII", header)
+
+        # Verify that our SuperBinary plist's tag
+        # matches the obtained one above.
+        (plist_tag, plist_metadata) = plist_tuple
+        assert plist_tag == self.tag, "Mismatched tag between payload and metadata!"
+        self.plist_metadata = plist_metadata
 
         # Obtain our metadata and payload.
         data.seek(self.metadata_offset)
-        self.payload = data.read(self.metadata_length)
+        self.metadata = data.read(self.metadata_length)
 
         data.seek(self.payloads_offset)
         self.payload = data.read(self.payloads_length)

@@ -72,7 +72,9 @@ if args.extract_payloads:
         else:
             seen_tags[tag_name] = 0
 
-        print(f"Saving {tag_name}...")
+        payload_name = payload.plist_metadata.long_name or "no long name"
+        print(f"Saving {tag_name} ({payload_name})...")
+
         if tag_was_seen:
             # e.g. CHFW_1.bin
             seen_count = seen_tags[tag_name]
@@ -83,7 +85,7 @@ if args.extract_payloads:
         write_payload(payload_filename, payload.payload)
 
     # Lastly, write the SuperBinary plist.
-    write_payload("SuperBinary.plist", super_binary.plist_data)
+    write_payload("SuperBinary.plist", super_binary.raw_plist_data)
 
 if args.decompress_fota:
     # Ensure we have a payload of this type.
@@ -119,23 +121,20 @@ if args.extract_rofs:
     for file in rofs_partition.files:
         write_payload(f"files/{file.file_name}", file.contents)
 
-metadata = MetadataPlist(super_binary.plist_data)
-print(metadata)
-
 if args.decompress_payload_contents:
-    # In order to understand which payload types are compressed, we need
-    # to parse the metadata plist present at the end of the SuperBinary.
-    metadata = MetadataPlist(super_binary.plist_data)
-
     # TODO(spotlightishere): This should function on platforms beyond macOS.
     assert (
         sys.platform == "darwin"
     ), "Decompression is not yet supported on this platform."
 
-    for payload_tag, metadata_chunk_size in metadata.compressed_payload_tags:
-        payload = super_binary.get_tag(payload_tag)
-        assert payload, "Invalid payload 4CC specified in metadata!"
+    for payload in super_binary.payloads:
+        # The metadata plist present at the end of the SuperBinary
+        # defines what segments are compressed.
+        # For our purpose, any compressed segment has a `compressed_chunk_size` that is not None.
+        chunk_size = payload.plist_metadata.compressed_chunk_size
+        if not chunk_size:
+            continue
 
         print(f"Decompressing {payload.get_tag()}...")
-        contents = decompress_payload_chunks(payload.payload, metadata_chunk_size)
+        contents = decompress_payload_chunks(payload)
         write_payload(f"{payload.get_tag()}.decompressed.bin", contents)

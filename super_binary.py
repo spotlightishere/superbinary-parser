@@ -1,7 +1,9 @@
 import io
 import struct
 from dataclasses import dataclass, field
+from typing import Optional
 
+from metadata_plist import MetadataPlist, UarpMetadata
 from uarp_payload import UarpPayload
 
 
@@ -36,7 +38,9 @@ class SuperBinary(object):
     # Payloads available within this binary.
     payloads: list[UarpPayload]
     # Trailing data past payload (i.e. SuperBinary plist).
-    plist_data: bytes = field(repr=False)
+    raw_plist_data: bytes = field(repr=False)
+    # The unarchived, top-level SuperBinary plist.
+    metadata: MetadataPlist
 
     def __init__(self, data: io.BufferedReader):
         self.payloads = []
@@ -65,8 +69,17 @@ class SuperBinary(object):
             self.row_length,
         ) = struct.unpack_from(">IIII", data.read(16))
 
-        # Finally, extract actual payload metadata.
         # At this point, we have gone past the SuperBinary header (0x2c).
+        # Our binary plist is at the end of our payload (`binary_size`).
+        # Let's read it, and then jump back.
+        data.seek(self.binary_size)
+        self.raw_plist_data = data.read()
+
+        # Unarchive the SuperBinary plist.
+        self.metadata = MetadataPlist(self.raw_plist_data)
+
+        # Jump back to where we left off, and finally extract actual payload metadata.
+        data.seek(0x2C)
         # The observed tag size is 0x28, so we will assume that.
         # Please make an issue (or a PR) to change this logic in the future!
         queried_data = struct.unpack_from(">I", data.peek(4))
@@ -74,21 +87,26 @@ class SuperBinary(object):
         assert metadata_tag_size == 0x28, "Unknown metadata tag size!"
         row_count = self.row_length // metadata_tag_size
 
-        # Obtain all possible payloads.
+        # TODO(spotlightishere): Is there any condition
+        # in which the length of the payload metadata array
+        # will not match the count of actual payloads?
+        assert row_count == len(
+            self.metadata.payload_tags
+        ), "Mismatched payload count between binary and metadata!"
+
+        # Obtain the metadata for all possible payloads.
         for payload_num in range(row_count):
             # Determine the metadata offset for this payload.
             offset = self.header_length + (payload_num * metadata_tag_size)
             data.seek(offset)
             payload_metadata = data.read(metadata_tag_size)
-            payload = UarpPayload(payload_metadata, data)
+
+            # This is a tuple with [tag, UarpMetadata].
+            plist_tuple = self.metadata.payload_tags[payload_num]
+            payload = UarpPayload(payload_metadata, plist_tuple, data)
             self.payloads.append(payload)
 
-        # Lastly, take our ending plist.
-        # Our payload size should be adequate.
-        data.seek(self.binary_size)
-        self.plist_data = data.read()
-
-    def get_tag(self, tag: bytes) -> list[UarpPayload, None]:
+    def get_tag(self, tag: bytes) -> Optional[UarpPayload]:
         """Returns the payload for the given tag. Returns None if not present."""
         assert len(tag) == 4, "Invalid 4CC/magic passed!"
         for payload in self.payloads:

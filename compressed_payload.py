@@ -5,6 +5,8 @@ import ctypes
 import struct
 import sys
 
+from uarp_payload import UarpPayload
+
 # TODO(spotlightishere): Replace libcompression.dylib with a cross-platform implementation
 if sys.platform == "darwin":
     libcompression = ctypes.CDLL("libcompression.dylib")
@@ -116,10 +118,10 @@ class CompressedChunk(object):
         return decompressed_buf[0:buffer_size]
 
 
-def decompress_payload_chunks(raw_data: bytes, chunk_size: int) -> bytes:
+def decompress_payload_chunks(payload: UarpPayload) -> bytes:
     """Decompresses a compressed payload within a SuperBinary."""
 
-    data = BytesIO(raw_data)
+    data = BytesIO(payload.payload)
     decompressed_data = BytesIO()
 
     # We're not presented with the resulting size of this content.
@@ -147,7 +149,7 @@ def decompress_payload_chunks(raw_data: bytes, chunk_size: int) -> bytes:
 
         # If we have a block size that decompresses to less than the chunk size
         # as specified in metadata, then we've come to an end of our chunks.
-        if len(decompressed) != chunk_size:
+        if len(decompressed) != payload.plist_metadata.compressed_chunk_size:
             break
 
-    return decompressed_data.getbuffer()
+    return decompressed_data.getvalue()

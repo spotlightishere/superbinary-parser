@@ -121,7 +121,7 @@ class CompressedChunk(object):
 def decompress_payload_chunks(payload: UarpPayload) -> bytes:
     """Decompresses a compressed payload within a SuperBinary."""
 
-    data = BytesIO(payload.payload)
+    data = BytesIO(payload.contents)
     decompressed_data = BytesIO()
 
     # We're not presented with the resulting size of this content.

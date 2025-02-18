@@ -30,7 +30,7 @@ class UarpPayload(object):
     # Metadata specified for this payload within the SuperBinary plist.
     plist_metadata: UarpMetadata
     # The data represented by this payload.
-    payload: bytes = field(repr=False)
+    contents: bytes = field(repr=False)
 
     def __init__(
         self,
@@ -63,7 +63,7 @@ class UarpPayload(object):
         self.metadata = data.read(self.metadata_length)
 
         data.seek(self.payloads_offset)
-        self.payload = data.read(self.payloads_length)
+        self.contents = data.read(self.payloads_length)
 
     def get_tag(self) -> str:
         """Returns a string with the given tag name."""

@@ -5,7 +5,6 @@ import sys
 
 from compressed_payload import decompress_payload_chunks
 from fota_payload import FotaPayload
-from metadata_plist import MetadataPlist
 from rofs import find_rofs
 from super_binary import SuperBinary
 
@@ -27,6 +26,11 @@ parser.add_argument(
     help="Whether to extract all payloads of this SuperBinary.",
     action=argparse.BooleanOptionalAction,
     default=True,
+)
+parser.add_argument(
+    "--use-tag-name",
+    help="Whether to extract payloads via their tag name instead of full path.",
+    action=argparse.BooleanOptionalAction,
 )
 parser.add_argument(
     "--decompress-fota",
@@ -57,37 +61,55 @@ payload_dir = args.output_dir
 payload_dir.mkdir(parents=True, exist_ok=True)
 
 
-def write_payload(file_name: str, contents: bytes):
-    file_path = payload_dir / file_name
+def write_payload(file_name: str, file_contents: bytes):
+    file_path: pathlib.Path = payload_dir / file_name
+
+    # In the case of fullpaths, we may need to make a parent directory first.
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+
     with open(file_path, "wb") as f:
-        f.write(contents)
+        f.write(file_contents)
 
 
 # Write out payloads if desired.
 if args.extract_payloads:
-    seen_tags: dict[str, int] = dict()
+    # Used to avoid conflicts in both tag names and fullpaths.
+    seen_filenames: dict[str, int] = {}
+
     for payload in super_binary.payloads:
-        # Some tags may have duplicate payloads. Let's append a number for every occurrence.
         tag_name = payload.get_tag()
-        tag_was_seen = False
-        if seen_tags.get(tag_name) is not None:
-            # We have a tag! Increment its seen count.
-            seen_tags[tag_name] += 1
-            tag_was_seen = True
-        else:
-            seen_tags[tag_name] = 0
-
         payload_name = payload.plist_metadata.long_name or "no long name"
-        print(f"Saving {tag_name} ({payload_name})...")
 
-        if tag_was_seen:
-            # e.g. CHFW_1.bin
-            seen_count = seen_tags[tag_name]
-            payload_filename = f"{tag_name}_{seen_count}.bin"
-        else:
-            # e.g. CHFW.bin
+        payload_filename: str
+        if args.use_tag_name:
             payload_filename = f"{tag_name}.bin"
-        write_payload(payload_filename, payload.payload)
+        else:
+            # We want to leverage the payload's given filepath.
+            # Ensure its parent directories exist.
+            payload_filename = payload.plist_metadata.filepath
+
+        # Sometimes, tags have multiple payloads, and filepaths conflict.
+        # Let's append a number for every occurrence.
+        seen_count = seen_filenames.get(payload_filename)
+        print(seen_count)
+        if seen_count is not None:
+            # We have a tag! Increment its seen count.
+            seen_filenames[payload_filename] += 1
+
+            # Append the count at the end of the file.
+            payload_filename = f"{payload_filename}.{seen_count}"
+        else:
+            seen_filenames[payload_filename] = 1
+
+        print(f"Saving {tag_name} ({payload_name}) to {payload_filename}...")
+
+        # Sometimes, this may be an absolute path.
+        # For example, some filepaths start with `/Library` or `/tmp`.
+        # Tags should (hopefully) never run in to this.
+        #
+        # Let's append `./` to the start to ensure relative resolution.
+        payload_filename = f"./{payload_filename}"
+        write_payload(payload_filename, payload.contents)
 
     # Lastly, write the SuperBinary plist.
     write_payload("SuperBinary.plist", super_binary.raw_plist_data)
@@ -99,7 +121,7 @@ if args.decompress_fota:
         print("Missing FOTA payload!")
         exit(1)
 
-    fota = FotaPayload(fota_payload.payload)
+    fota = FotaPayload(fota_payload.contents)
     write_payload("FOTA.bin.lzma", fota.compressed)
 
     # Decompress payload.

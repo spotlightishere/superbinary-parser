@@ -7,6 +7,7 @@ from compressed_payload import decompress_payload_chunks
 from fota_payload import FotaPayload
 from rofs import find_rofs
 from super_binary import SuperBinary
+from uarp_payload import UarpPayload
 
 parser = argparse.ArgumentParser(
     description="Extracts a FOTA within a SuperBinary container."
@@ -31,6 +32,7 @@ parser.add_argument(
     "--use-tag-name",
     help="Whether to extract payloads via their tag name instead of full path.",
     action=argparse.BooleanOptionalAction,
+    default=True,
 )
 parser.add_argument(
     "--decompress-fota",
@@ -62,6 +64,8 @@ payload_dir.mkdir(parents=True, exist_ok=True)
 
 
 def write_payload(file_name: str, file_contents: bytes):
+    """Writes the given payload to the specified path, creating parent directories as necessary."""
+
     file_path: pathlib.Path = payload_dir / file_name
 
     # In the case of fullpaths, we may need to make a parent directory first.
@@ -71,6 +75,19 @@ def write_payload(file_name: str, file_contents: bytes):
         f.write(file_contents)
 
 
+def get_payload_filename(payload: UarpPayload) -> str:
+    """Determines the name to save this UarpPayload with."""
+
+    if args.use_tag_name:
+        payload_filename = f"{tag_name}.bin"
+    else:
+        # We want to leverage the payload's given filepath.
+        # Ensure its parent directories exist.
+        payload_filename = payload.plist_metadata.filepath
+
+    return payload_filename
+
+
 # Write out payloads if desired.
 if args.extract_payloads:
     # Used to avoid conflicts in both tag names and fullpaths.
@@ -78,20 +95,12 @@ if args.extract_payloads:
 
     for payload in super_binary.payloads:
         tag_name = payload.get_tag()
-        payload_name = payload.plist_metadata.long_name or "no long name"
-
-        payload_filename: str
-        if args.use_tag_name:
-            payload_filename = f"{tag_name}.bin"
-        else:
-            # We want to leverage the payload's given filepath.
-            # Ensure its parent directories exist.
-            payload_filename = payload.plist_metadata.filepath
+        payload_name = payload.plist_metadata.long_name or "no payload description"
+        payload_filename = get_payload_filename(payload)
 
         # Sometimes, tags have multiple payloads, and filepaths conflict.
         # Let's append a number for every occurrence.
         seen_count = seen_filenames.get(payload_filename)
-        print(seen_count)
         if seen_count is not None:
             # We have a tag! Increment its seen count.
             seen_filenames[payload_filename] += 1
@@ -101,7 +110,8 @@ if args.extract_payloads:
         else:
             seen_filenames[payload_filename] = 1
 
-        print(f"Saving {tag_name} ({payload_name}) to {payload_filename}...")
+        print(f"Found {tag_name} ({payload_name})")
+        print(f"Saving to {payload_filename}...")
 
         # Sometimes, this may be an absolute path.
         # For example, some filepaths start with `/Library` or `/tmp`.
@@ -157,7 +167,6 @@ if args.decompress_payload_contents:
         assert (
             sys.platform == "darwin"
         ), "Decompression is not yet supported on this platform."
-
 
         print(f"Decompressing {payload.get_tag()}...")
         contents = decompress_payload_chunks(payload)

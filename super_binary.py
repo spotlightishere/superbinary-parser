@@ -26,10 +26,11 @@ class SuperBinary(object):
     release_version: int
     # i.e. 1 in '100.7916.1052884864.1'.
     build_version: int
-    # Metadata size.
-    metadata_length: int
+    # The size of every section's metadata entry in binary form.
+    # Note that this is also mirrored to the property list.
+    section_metadata_length: int
     # Observed to be zero.
-    metadata_offset: int
+    section_metadata_offset: int
     # Payloads length
     row_length: int
     # Payloads offset
@@ -49,7 +50,7 @@ class SuperBinary(object):
         self.header_version, self.header_length = struct.unpack_from(
             ">II", data.read(8)
         )
-        assert self.header_version in [2, 3], "Unknown version of SuperBinary!"
+        assert self.header_version in [2, 3, 4], "Unknown version of SuperBinary!"
         assert self.header_length == 0x2C, "Invalid header length for version!"
 
         # Load the remainder of the header.
@@ -63,8 +64,8 @@ class SuperBinary(object):
 
         # Next, load offsets and length information.
         (
-            self.metadata_offset,
-            self.metadata_length,
+            self.section_metadata_offset,
+            self.section_metadata_length,
             self.row_offset,
             self.row_length,
         ) = struct.unpack_from(">IIII", data.read(16))
@@ -78,28 +79,47 @@ class SuperBinary(object):
         # Unarchive the SuperBinary plist.
         self.metadata = MetadataPlist(self.raw_plist_data)
 
+        # Version 4 SuperBinaries appear to have mandatory personalization sections.
+        if self.header_version == 4:
+            # Determine if there is already a PMAP tag.
+            pmap_present = False
+            for plist_payload in self.metadata.payload_tags:
+                if plist_payload[0] == b"PMAP":
+                    pmap_present = True
+                    break
+
+            if not pmap_present:
+                # Add a synthetic PMAP tag for processing.
+                synthetic_metadata = {
+                    "Payload Filepath": "PMAP.plist",
+                    "Payload Long Name": "Personalization Mapping",
+                    "Payload MetaData": {},
+                }
+                synthetic_pmap = (b"PMAP", UarpMetadata(synthetic_metadata))
+                self.metadata.payload_tags.append(synthetic_pmap)
+
         # Jump back to where we left off, and finally extract actual payload metadata.
         data.seek(0x2C)
         # The observed tag size is 0x28, so we will assume that.
         # Please make an issue (or a PR) to change this logic in the future!
         queried_data = struct.unpack_from(">I", data.peek(4))
-        metadata_tag_size = queried_data[0]
-        assert metadata_tag_size == 0x28, "Unknown metadata tag size!"
-        row_count = self.row_length // metadata_tag_size
+        payload_metadata_length = queried_data[0]
+        assert payload_metadata_length == 0x28, "Unknown payload metadata size!"
+        payload_row_count = self.row_length // payload_metadata_length
 
         # TODO(spotlightishere): Is there any condition
         # in which the length of the payload metadata array
         # will not match the count of actual payloads?
-        assert row_count == len(
+        assert payload_row_count == len(
             self.metadata.payload_tags
-        ), "Mismatched payload count between binary and metadata!"
+        ), "Mismatched payload count between binary and property list metadata!"
 
         # Obtain the metadata for all possible payloads.
-        for payload_num in range(row_count):
+        for payload_num in range(payload_row_count):
             # Determine the metadata offset for this payload.
-            offset = self.header_length + (payload_num * metadata_tag_size)
+            offset = self.header_length + (payload_num * payload_metadata_length)
             data.seek(offset)
-            payload_metadata = data.read(metadata_tag_size)
+            payload_metadata = data.read(payload_metadata_length)
 
             # This is a tuple with [tag, UarpMetadata].
             plist_tuple = self.metadata.payload_tags[payload_num]

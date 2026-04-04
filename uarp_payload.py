@@ -35,7 +35,7 @@ class UarpPayload(object):
     def __init__(
         self,
         header: bytes,
-        plist_tuple: (bytes, UarpMetadata),
+        plist_tuple: tuple[bytes, UarpMetadata],
         data: io.BufferedReader,
     ):
         # Parse the metadata within header.
@@ -54,7 +54,7 @@ class UarpPayload(object):
 
         # Verify that our SuperBinary plist's tag
         # matches the obtained one above.
-        (plist_tag, plist_metadata) = plist_tuple
+        plist_tag, plist_metadata = plist_tuple
         assert plist_tag == self.tag, "Mismatched tag between payload and metadata!"
         self.plist_metadata = plist_metadata
 

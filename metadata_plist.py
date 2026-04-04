@@ -60,7 +60,7 @@ class MetadataPlist(object):
     all_metadata: dict
 
     # Metadata for all payloads.
-    payload_tags: [(bytes, UarpMetadata)]
+    payload_tags: list[tuple[bytes, UarpMetadata]]
 
     def __init__(self, plist_data: bytes):
         unarchiver = SomewhatKeyedUnarchiver(plist_data)

@@ -56,7 +56,7 @@ class FotaFormatMetadata(object):
     payload_size: int = 0
 
     def __init__(self, contents: io.BytesIO):
-        (self.payload_offset, self.payload_length, self.unknown) = struct.unpack(
+        self.payload_offset, self.payload_length, self.unknown = struct.unpack(
             "<HII", contents.read(10)
         )
 
@@ -76,7 +76,7 @@ class FotaSegment(object):
     unknown: int = 0
 
     def __init__(self, contents: io.BytesIO):
-        (self.payload_offset, self.payload_length, self.unknown) = struct.unpack(
+        self.payload_offset, self.payload_length, self.unknown = struct.unpack(
             "<III", contents.read(12)
         )
 
@@ -142,7 +142,7 @@ class FotaMetadata(object):
             # There appears to be no count of the TLV fields, so we simply
             # cease reading once we encounter a type of 0xFFFF.
             # (At worst, we'll fail with an exception.)
-            (data_type, data_length) = struct.unpack_from("<HH", data.read(4))
+            data_type, data_length = struct.unpack_from("<HH", data.read(4))
             if data_type == 0xFFFF:
                 # We've reached the end of possible TLV types.
                 break

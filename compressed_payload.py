@@ -9,9 +9,12 @@ from uarp_payload import UarpPayload
 
 # TODO(spotlightishere): Replace libcompression.dylib with a cross-platform implementation
 if sys.platform == "darwin":
-    libcompression = ctypes.CDLL("libcompression.dylib")
+    try:
+        libcompression = ctypes.CDLL("libcompression.dylib")
+    except OSError:
+        libcompression = None
 else:
-    # For now, we cannot use it.
+    # For now, we cannot use it on non-darwin platforms.
     libcompression = None
 
 # Our header's length is 10 bytes in length.
@@ -51,6 +54,98 @@ class CompressionTypes(Enum):
             return 0x100
         else:
             raise AssertionError("Unknown compression type!")
+
+
+def decompress_lzbitmap_fast(src: bytes, dst_len: int) -> bytes:
+    """Decompresses Apple's LZBitmapFast2 algorithm (libcompression algorithm 0x602).
+
+    Each block emits up to 128 bytes (16 groups of 8 bytes).
+    Format of each block:
+      - 32-bit header (little endian):
+          low 16 bits: literal_mask (1 bit per group indicating if literal flags byte exists)
+          high 16 bits: distance_mask (1 bit per group indicating if uint16 distance exists)
+      - Uncompressed block special case:
+          If literal_mask == 0xFFFF and 5th byte == 0x00:
+              distance_mask is length to copy; if 0, marks end of stream.
+      - Compressed block:
+          popcount(literal_mask) bytes of group literal masks (1 byte per set bit)
+          popcount(distance_mask) uint16_le distance words (1 word per set bit)
+          literal stream follows
+    """
+    dst = bytearray()
+    src_idx = 0
+    distance = 8
+    src_len = len(src)
+
+    while len(dst) < dst_len and src_idx < src_len:
+        if src_idx + 4 > src_len:
+            break
+
+        header = struct.unpack_from("<I", src, src_idx)[0]
+        literal_mask = header & 0xFFFF
+        distance_mask = (header >> 16) & 0xFFFF
+
+        # Check for uncompressed block:
+        # Literal mask is 0xFFFF and 5th byte is 0x00.
+        if literal_mask == 0xFFFF and src_idx + 5 <= src_len and src[src_idx + 4] == 0:
+            copy_len = distance_mask
+            if copy_len == 0:
+                # End of stream marker
+                break
+            src_idx += 5
+            to_copy = min(copy_len, dst_len - len(dst))
+            dst.extend(src[src_idx : src_idx + to_copy])
+            src_idx += copy_len
+            continue
+
+        src_idx += 4
+
+        # Compressed block (produces up to 128 bytes: 16 groups of 8 bytes)
+        # 1. Read literal masks (1 byte per set bit in literal_mask)
+        n_lit_masks = literal_mask.bit_count()
+        lit_masks = src[src_idx : src_idx + n_lit_masks]
+        src_idx += n_lit_masks
+
+        # 2. Read distances (uint16_le per set bit in distance_mask)
+        n_dists = distance_mask.bit_count()
+        dist_bytes = src[src_idx : src_idx + n_dists * 2]
+        src_idx += n_dists * 2
+        dists = struct.unpack_from(f"<{n_dists}H", dist_bytes) if n_dists else ()
+
+        lit_mask_idx = 0
+        dist_idx = 0
+
+        for g in range(16):
+            if len(dst) >= dst_len:
+                break
+
+            if distance_mask & (1 << g):
+                distance = dists[dist_idx]
+                dist_idx += 1
+
+            if literal_mask & (1 << g):
+                byte_mask = lit_masks[lit_mask_idx]
+                lit_mask_idx += 1
+            else:
+                byte_mask = 0
+
+            for b in range(8):
+                if len(dst) >= dst_len:
+                    break
+
+                if byte_mask & (1 << b):
+                    # Literal byte
+                    dst.append(src[src_idx])
+                    src_idx += 1
+                else:
+                    # Match byte from past output
+                    if distance > len(dst):
+                        raise ValueError(
+                            f"Invalid match distance: {distance} > {len(dst)}"
+                        )
+                    dst.append(dst[-distance])
+
+    return bytes(dst)
 
 
 @dataclass
@@ -97,25 +192,46 @@ class CompressedChunk(object):
         self.compressed_data = raw_data.read(self.compressed_length)
 
     def decompress(self) -> bytes:
-        """Leverages libcompression from macOS to decompress contents."""
+        """Leverages libcompression from macOS or native fallback to decompress contents."""
         # If this is passthrough, we simply return our "compressed" data's length.
         if self.compression_type == CompressionTypes.PASSTHROUGH:
             return self.compressed_data
 
-        # TODO(spotlightishere): Replace libcompression.dylib with a cross-platform implementation
-        compression_algorithm = self.compression_type.get_compression_algorithm()
+        if self.compression_type == CompressionTypes.LZBITMAPFAST:
+            if libcompression is not None:
+                try:
+                    decompressed_buf = ctypes.create_string_buffer(self.decompressed_length)
+                    buffer_size = libcompression.compression_decode_buffer(
+                        decompressed_buf,
+                        self.decompressed_length,
+                        self.compressed_data,
+                        self.compressed_length,
+                        None,
+                        self.compression_type.get_compression_algorithm(),
+                    )
+                    if buffer_size > 0:
+                        return decompressed_buf[0:buffer_size]
+                except Exception:
+                    pass
+            return decompress_lzbitmap_fast(self.compressed_data, self.decompressed_length)
 
-        # Otherwise, decompresss!
-        decompressed_buf = ctypes.create_string_buffer(self.decompressed_length)
-        buffer_size = libcompression.compression_decode_buffer(
-            decompressed_buf,
-            self.decompressed_length,
-            self.compressed_data,
-            self.compressed_length,
-            None,
-            compression_algorithm,
+        # Otherwise, decompress via libcompression!
+        if libcompression is not None:
+            compression_algorithm = self.compression_type.get_compression_algorithm()
+            decompressed_buf = ctypes.create_string_buffer(self.decompressed_length)
+            buffer_size = libcompression.compression_decode_buffer(
+                decompressed_buf,
+                self.decompressed_length,
+                self.compressed_data,
+                self.compressed_length,
+                None,
+                compression_algorithm,
+            )
+            return decompressed_buf[0:buffer_size]
+
+        raise NotImplementedError(
+            f"Decompression for {self.compression_type.name} is not yet supported without libcompression."
         )
-        return decompressed_buf[0:buffer_size]
 
 
 def decompress_payload_chunks(payload: UarpPayload) -> bytes:

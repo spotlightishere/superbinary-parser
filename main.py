@@ -163,11 +163,6 @@ if args.decompress_payload_contents:
         if not chunk_size:
             continue
 
-        # TODO(spotlightishere): This should function on platforms beyond macOS.
-        assert (
-            sys.platform == "darwin"
-        ), "Decompression is not yet supported on this platform."
-
         print(f"Decompressing {payload.get_tag()}...")
         contents = decompress_payload_chunks(payload)
         write_payload(f"{payload.get_tag()}.decompressed.bin", contents)

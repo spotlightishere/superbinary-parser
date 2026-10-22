@@ -165,21 +165,24 @@ class CompressedChunk(object):
 
     # Size of uncompressed data this chunk produces.
     #
-    # This should match the standard block size; if not,
-    # this is the final chunk to be decompressed.
+    # May be smaller than the configured block size. Payload length, rather
+    # than a short chunk, determines the end of the stream.
     decompressed_length: int
 
     # Our raw data to decompress.
     compressed_data: bytes = field(repr=False)
 
     def __init__(self, raw_data: BytesIO):
-        # Parse the current chunk's metadata. This is seemingly always big endian.
+        # Packed, big-endian uint16/uint32/uint16/uint16 fields.
+        header = raw_data.read(COMPRESSED_HEADER_LENGTH)
+        if len(header) != COMPRESSED_HEADER_LENGTH:
+            raise ValueError("Truncated compression chunk header")
         (
             raw_compression_type,
             self.decompressed_offset,
             self.compressed_length,
             self.decompressed_length,
-        ) = struct.unpack_from(">HIHH", raw_data.read(COMPRESSED_HEADER_LENGTH))
+        ) = struct.unpack(">HIHH", header)
         self.compression_type = CompressionTypes(raw_compression_type)
 
         # Passthrough chunks must have the same length for compressed and decompressed data.
@@ -190,6 +193,8 @@ class CompressedChunk(object):
 
         # Our raw data is immediately beyond our header.
         self.compressed_data = raw_data.read(self.compressed_length)
+        if len(self.compressed_data) != self.compressed_length:
+            raise ValueError("Truncated compressed chunk data")
 
     def decompress(self) -> bytes:
         """Leverages libcompression from macOS or native fallback to decompress contents."""
@@ -242,7 +247,7 @@ def decompress_payload_chunks(payload: UarpPayload) -> bytes:
 
     # We're not presented with the resulting size of this content.
     # As such, we'll need to iterate through this entire file, handling chunks as we go.
-    while True:
+    while data.tell() < len(payload.contents):
         # Read and decompress the current chunk.
         current_chunk = CompressedChunk(data)
         decompressed = current_chunk.decompress()
@@ -262,10 +267,5 @@ def decompress_payload_chunks(payload: UarpPayload) -> bytes:
             )
 
         decompressed_data.write(decompressed)
-
-        # If we have a block size that decompresses to less than the chunk size
-        # as specified in metadata, then we've come to an end of our chunks.
-        if len(decompressed) != payload.plist_metadata.compressed_chunk_size:
-            break
 
     return decompressed_data.getvalue()

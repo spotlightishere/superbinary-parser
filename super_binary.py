@@ -1,5 +1,6 @@
 import io
 import struct
+from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -79,52 +80,56 @@ class SuperBinary(object):
         # Unarchive the SuperBinary plist.
         self.metadata = MetadataPlist(self.raw_plist_data)
 
-        # Version 4 SuperBinaries appear to have mandatory personalization sections.
-        if self.header_version == 4:
-            # Determine if there is already a PMAP tag.
-            pmap_present = False
-            for plist_payload in self.metadata.payload_tags:
-                if plist_payload[0] == b"PMAP":
-                    pmap_present = True
-                    break
+        # Binary row indices are used by metadata references.
+        row_size = 0x28
+        if self.row_length % row_size:
+            raise ValueError("Payload table length is not a multiple of 40")
+        if (self.row_offset < self.header_length
+                or self.row_offset + self.row_length > self.binary_size):
+            raise ValueError("Payload table is outside the SuperBinary")
 
-            if not pmap_present:
-                # Add a synthetic PMAP tag for processing.
-                synthetic_metadata = {
-                    "Payload Filepath": "PMAP.plist",
-                    "Payload Long Name": "Personalization Mapping",
+        metadata_by_tag = defaultdict(deque)
+        for tag, metadata in self.metadata.payload_tags:
+            metadata_by_tag[tag].append(metadata)
+
+        for row_index in range(self.row_length // row_size):
+            data.seek(self.row_offset + row_index * row_size)
+            header = data.read(row_size)
+            if len(header) != row_size:
+                raise ValueError(f"Truncated payload row {row_index}")
+            fields = struct.unpack(">I4s8I", header)
+            size, tag = fields[:2]
+            if size != row_size:
+                raise ValueError(f"Unknown payload header size in row {row_index}")
+            for offset, length in ((fields[6], fields[7]), (fields[8], fields[9])):
+                if offset + length > self.binary_size:
+                    raise ValueError(f"Payload row {row_index} extends outside the SuperBinary")
+
+            if metadata_by_tag[tag]:
+                metadata = metadata_by_tag[tag].popleft()
+            elif tag == b"CHDR" or (tag == b"PMAP" and self.header_version == 4):
+                metadata = UarpMetadata({
+                    "Payload Filepath": (
+                        f"CHDR-{row_index}.bin" if tag == b"CHDR" else "PMAP.plist"
+                    ),
+                    "Payload Long Name": (
+                        "Compressed chunk headers" if tag == b"CHDR"
+                        else "Personalization Mapping"
+                    ),
                     "Payload MetaData": {},
-                }
-                synthetic_pmap = (b"PMAP", UarpMetadata(synthetic_metadata))
-                self.metadata.payload_tags.append(synthetic_pmap)
+                })
+            else:
+                raise ValueError(f"Missing plist metadata for payload row {row_index} ({tag!r})")
 
-        # Jump back to where we left off, and finally extract actual payload metadata.
-        data.seek(0x2C)
-        # The observed tag size is 0x28, so we will assume that.
-        # Please make an issue (or a PR) to change this logic in the future!
-        queried_data = struct.unpack_from(">I", data.peek(4))
-        payload_metadata_length = queried_data[0]
-        assert payload_metadata_length == 0x28, "Unknown payload metadata size!"
-        payload_row_count = self.row_length // payload_metadata_length
-
-        # TODO(spotlightishere): Is there any condition
-        # in which the length of the payload metadata array
-        # will not match the count of actual payloads?
-        assert payload_row_count == len(
-            self.metadata.payload_tags
-        ), "Mismatched payload count between binary and property list metadata!"
-
-        # Obtain the metadata for all possible payloads.
-        for payload_num in range(payload_row_count):
-            # Determine the metadata offset for this payload.
-            offset = self.header_length + (payload_num * payload_metadata_length)
-            data.seek(offset)
-            payload_metadata = data.read(payload_metadata_length)
-
-            # This is a tuple with [tag, UarpMetadata].
-            plist_tuple = self.metadata.payload_tags[payload_num]
-            payload = UarpPayload(payload_metadata, plist_tuple, data)
+            payload = UarpPayload(header, (tag, metadata), data)
+            if (len(payload.metadata) != payload.metadata_length
+                    or len(payload.contents) != payload.payloads_length):
+                raise ValueError(f"Truncated data for payload row {row_index}")
             self.payloads.append(payload)
+
+        unmatched = [tag for tag, entries in metadata_by_tag.items() if entries]
+        if unmatched:
+            raise ValueError(f"Plist metadata has no matching binary rows: {unmatched!r}")
 
     def get_tag(self, tag: bytes) -> Optional[UarpPayload]:
         """Returns the payload for the given tag. Returns None if not present."""
